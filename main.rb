@@ -12,8 +12,8 @@ rentals_friendly_hash = Rentals.build_friendly_hash(data)
 
 Billing.add_billing_info(rentals_friendly_hash)
 
-rentals_data = JsonMethods.delete_unwanted_keys(rentals_friendly_hash)
+transfer_data = Billing.transfer_summary(rentals_friendly_hash)
 
-formated_data = JsonMethods.format_hash(rentals_data)
+formated_data = JsonMethods.format_hash(transfer_data)
 
 JsonMethods.generate_json(formated_data)

@@ -5,8 +5,9 @@ class Billing
       rental[:rental_duration] = ((rental[:end_date] - rental[:start_date]).to_i)+1
       rental[:days_price] = days_price_calculator(rental[:car_price_per_day], rental[:rental_duration])
       rental[:kms_price] = rental[:car_price_per_km] * rental[:distance]
-      rental[:price] = rental[:days_price] + rental[:kms_price]
-      rental[:commission] = split_commission(rental[:price], rental[:rental_duration])
+      rental[:bill] = split_commission(rental[:days_price] + rental[:kms_price],
+                                       rental[:rental_duration],
+                                       rental[:id])
     end
   end
 
@@ -29,13 +30,70 @@ class Billing
     price.to_i
   end
 
-  def self.split_commission(price, duration)
+  def self.split_commission(price, duration, id)
     total_commission = price * 0.3
-    commission = Hash.new
-    commission[:insurance_fee] = (total_commission * 0.5)
-    commission[:assistance_fee] = (duration * 100)
-    commission[:drivy_fee] = (total_commission - commission[:assistance_fee] - commission[:insurance_fee])
-    commission.transform_values!(&:to_i)
+    bill = Hash.new
+    bill[:id] = id
+    bill[:total_price] = price
+    bill[:owner_benefit] = price - total_commission
+    bill[:insurance_fee] = (total_commission * 0.5)
+    bill[:assistance_fee] = (duration * 100)
+    bill[:drivy_fee] = (total_commission - bill[:assistance_fee] - bill[:insurance_fee])
+    bill.transform_values!(&:to_i)
+  end
+
+  def self.transfer_summary(data)
+    person_types = %w[
+      driver
+      owner
+      insurance
+      assistance
+      drivy
+    ]
+
+    bills = data.map{|com| com[:bill]}
+
+    rentals = []
+
+    bills.each do |bill|
+      rental_bill = Hash.new
+      rental_bill[:id] = bill[:id]
+      rental_bill[:actions] = []
+
+      person_types.each do |person_type|
+        transfer_type = Hash.new
+        transfer_type[:who] = person_type
+        transfer_type[:type] = action_type(person_type)
+        transfer_type[:ammount] = find_amount(person_type, bill)
+
+        rental_bill[:actions] << transfer_type
+      end
+      rentals << rental_bill
+    end
+    rentals
+  end
+
+  def self.action_type(person_type)
+    if person_type == "driver"
+      "debit"
+    else
+      "credit"
+    end
+  end
+
+  def self.find_amount(person_type, bill)
+    case person_type
+    when "driver"
+      bill[:total_price]
+    when "owner"
+      bill[:owner_benefit]
+    when "insurance"
+      bill[:insurance_fee]
+    when "assistance"
+      bill[:assistance_fee]
+    when "drivy"
+      bill[:drivy_fee]
+    end
   end
 
 end
